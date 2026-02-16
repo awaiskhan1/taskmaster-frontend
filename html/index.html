@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MERN Stack — DevOps Bootcamp</title>
+    <style>
+        body { font-family: -apple-system, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; background: #1a1a2e; color: #eee; }
+        h1 { color: #0f3460; background: #e94560; padding: 20px; border-radius: 8px; text-align: center; }
+        .card { background: #16213e; padding: 20px; margin: 15px 0; border-radius: 8px; border-left: 4px solid #e94560; }
+        .status { color: #00ff88; font-weight: bold; }
+        button { background: #e94560; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin: 5px; }
+        pre { background: #0f3460; padding: 15px; border-radius: 5px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>DevOps Bootcamp — MERN Stack</h1>
+    <div class="card">
+        <h3>Stack Status</h3>
+        <p>Frontend: <span class="status">Running</span></p>
+        <p>Backend: <span class="status" id="backend-status">Checking...</span></p>
+    </div>
+    <div class="card">
+        <h3>API Test</h3>
+        <button onclick="fetchUsers()">Fetch Users</button>
+        <button onclick="fetchProducts()">Fetch Products</button>
+        <pre id="output">Click a button to test the API...</pre>
+    </div>
+    <script>
+        async function checkBackend() {
+            try {
+                const res = await fetch('/api/users');
+                document.getElementById('backend-status').textContent = res.ok ? 'Connected' : 'Error';
+            } catch { document.getElementById('backend-status').textContent = 'Disconnected'; }
+        }
+        async function fetchUsers() {
+            try {
+                const res = await fetch('/api/users');
+                document.getElementById('output').textContent = JSON.stringify(await res.json(), null, 2);
+            } catch (e) { document.getElementById('output').textContent = 'Error: ' + e.message; }
+        }
+        async function fetchProducts() {
+            try {
+                const res = await fetch('/api/products');
+                document.getElementById('output').textContent = JSON.stringify(await res.json(), null, 2);
+            } catch (e) { document.getElementById('output').textContent = 'Error: ' + e.message; }
+        }
+        checkBackend();
+    </script>
+</body>
+</html>
