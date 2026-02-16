@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskMaster — DevOps Bootcamp</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+        .container { max-width: 700px; margin: 0 auto; padding: 40px 20px; }
+        h1 { text-align: center; font-size: 2rem; margin-bottom: 8px; background: linear-gradient(135deg, #3b82f6, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .subtitle { text-align: center; color: #64748b; margin-bottom: 30px; font-size: 0.9rem; }
+        .status-bar { display: flex; gap: 15px; justify-content: center; margin-bottom: 30px; flex-wrap: wrap; }
+        .status-item { background: #1e293b; padding: 8px 16px; border-radius: 8px; font-size: 0.85rem; border: 1px solid #334155; }
+        .status-item .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+        .dot.green { background: #22c55e; }
+        .dot.red { background: #ef4444; }
+        .dot.yellow { background: #eab308; }
+        .add-form { display: flex; gap: 10px; margin-bottom: 25px; }
+        .add-form input { flex: 1; padding: 12px 16px; border: 2px solid #334155; border-radius: 10px; background: #1e293b; color: #e2e8f0; font-size: 1rem; outline: none; transition: border-color 0.2s; }
+        .add-form input:focus { border-color: #3b82f6; }
+        .add-form button { padding: 12px 24px; background: #3b82f6; color: white; border: none; border-radius: 10px; font-size: 1rem; cursor: pointer; font-weight: 600; transition: background 0.2s; }
+        .add-form button:hover { background: #2563eb; }
+        .task-list { list-style: none; }
+        .task-item { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: #1e293b; border-radius: 10px; margin-bottom: 8px; border: 1px solid #334155; transition: border-color 0.2s; }
+        .task-item:hover { border-color: #475569; }
+        .task-item.completed .task-title { text-decoration: line-through; color: #64748b; }
+        .task-check { width: 22px; height: 22px; border-radius: 6px; border: 2px solid #475569; background: none; cursor: pointer; display: flex; align-items: center; justify-content: center; color: white; font-size: 14px; transition: all 0.2s; flex-shrink: 0; }
+        .task-check.checked { background: #22c55e; border-color: #22c55e; }
+        .task-title { flex: 1; font-size: 0.95rem; }
+        .task-date { color: #64748b; font-size: 0.75rem; }
+        .task-delete { background: none; border: none; color: #64748b; cursor: pointer; font-size: 1.2rem; padding: 4px 8px; border-radius: 6px; transition: all 0.2s; }
+        .task-delete:hover { color: #ef4444; background: #1a1a2e; }
+        .empty { text-align: center; color: #64748b; padding: 40px; font-size: 1.1rem; }
+        .error { text-align: center; color: #ef4444; padding: 20px; background: #1e293b; border-radius: 10px; margin-bottom: 20px; border: 1px solid #ef4444; }
+        .footer { text-align: center; color: #475569; margin-top: 40px; font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>TaskMaster</h1>
+        <p class="subtitle">DevOps Bootcamp Project</p>
+
+        <div class="status-bar">
+            <div class="status-item"><span class="dot" id="api-dot"></span>API: <span id="api-status">checking...</span></div>
+            <div class="status-item"><span class="dot" id="db-dot"></span>DB: <span id="db-status">checking...</span></div>
+            <div class="status-item">Pod: <span id="pod-name">-</span></div>
+        </div>
+
+        <div id="error-box"></div>
+
+        <div class="add-form">
+            <input type="text" id="task-input" placeholder="Add a new task..." onkeypress="if(event.key==='Enter')addTask()">
+            <button onclick="addTask()">Add</button>
+        </div>
+
+        <ul class="task-list" id="task-list">
+            <li class="empty">Loading tasks...</li>
+        </ul>
+
+        <div class="footer">
+            TaskMaster v1.0.0 — Built for DevOps Bootcamp
+        </div>
+    </div>
+
+    <script>
+        const API = window.location.hostname === 'localhost' && window.location.port === ''
+            ? 'http://localhost:5000'
+            : '/api';
+
+        async function checkHealth() {
+            try {
+                const res = await fetch(API.includes('/api') ? '/api/health' : `${API}/health`);
+                const data = await res.json();
+                document.getElementById('api-status').textContent = data.status;
+                document.getElementById('api-dot').className = 'dot green';
+                document.getElementById('db-status').textContent = data.mongo;
+                document.getElementById('db-dot').className = data.mongo === 'connected' ? 'dot green' : 'dot yellow';
+                document.getElementById('pod-name').textContent = data.hostname || '-';
+            } catch (e) {
+                document.getElementById('api-status').textContent = 'offline';
+                document.getElementById('api-dot').className = 'dot red';
+                document.getElementById('db-status').textContent = 'unknown';
+                document.getElementById('db-dot').className = 'dot red';
+            }
+        }
+
+        async function loadTasks() {
+            try {
+                const url = API.includes('/api') ? '/api/tasks' : `${API}/api/tasks`;
+                const res = await fetch(url);
+                const data = await res.json();
+                const list = document.getElementById('task-list');
+                document.getElementById('error-box').innerHTML = '';
+
+                if (!data.tasks || data.tasks.length === 0) {
+                    list.innerHTML = '<li class="empty">No tasks yet — add one above!</li>';
+                    return;
+                }
+
+                list.innerHTML = data.tasks.map(t => `
+                    <li class="task-item ${t.completed ? 'completed' : ''}">
+                        <button class="task-check ${t.completed ? 'checked' : ''}" onclick="toggleTask('${t._id}', ${!t.completed})">${t.completed ? '✓' : ''}</button>
+                        <span class="task-title">${t.title}</span>
+                        <span class="task-date">${new Date(t.createdAt).toLocaleDateString()}</span>
+                        <button class="task-delete" onclick="deleteTask('${t._id}')">×</button>
+                    </li>
+                `).join('');
+            } catch (e) {
+                document.getElementById('error-box').innerHTML = `<div class="error">Cannot connect to API — is the backend running?</div>`;
+                document.getElementById('task-list').innerHTML = '<li class="empty">API not available</li>';
+            }
+        }
+
+        async function addTask() {
+            const input = document.getElementById('task-input');
+            const title = input.value.trim();
+            if (!title) return;
+            try {
+                const url = API.includes('/api') ? '/api/tasks' : `${API}/api/tasks`;
+                await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title })
+                });
+                input.value = '';
+                loadTasks();
+            } catch (e) {
+                alert('Failed to add task');
+            }
+        }
+
+        async function toggleTask(id, completed) {
+            try {
+                const url = API.includes('/api') ? `/api/tasks/${id}` : `${API}/api/tasks/${id}`;
+                await fetch(url, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ completed })
+                });
+                loadTasks();
+            } catch (e) { alert('Failed to update task'); }
+        }
+
+        async function deleteTask(id) {
+            try {
+                const url = API.includes('/api') ? `/api/tasks/${id}` : `${API}/api/tasks/${id}`;
+                await fetch(url, { method: 'DELETE' });
+                loadTasks();
+            } catch (e) { alert('Failed to delete task'); }
+        }
+
+        checkHealth();
+        loadTasks();
+        setInterval(checkHealth, 30000);
+    </script>
+</body>
+</html>
